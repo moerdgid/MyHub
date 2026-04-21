@@ -1,9 +1,9 @@
-<script setup lang="ts">
-import TheWelcome from '../components/TheWelcome.vue'
-</script>
-
 <template>
   <main>
-    <TheWelcome />
+    <h1>MyHub</h1>
+    <p>Your personal dashboard for weather, calendar, and daily info.</p>
   </main>
 </template>
+
+<script setup lang="ts">
+</script>
