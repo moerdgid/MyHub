@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
@@ -16,7 +16,7 @@ const getCurrentUser = () => {
 }
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHashHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
@@ -44,8 +44,8 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
   const user = await getCurrentUser()
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
 
   if (requiresAuth && !user) {
     return '/login'
@@ -54,6 +54,8 @@ router.beforeEach(async (to) => {
   if ((to.path === '/login' || to.path === '/register') && user) {
     return '/'
   }
+
+  return true
 })
 
 export default router
