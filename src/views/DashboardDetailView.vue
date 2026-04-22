@@ -20,7 +20,6 @@
         </router-link>
       </div>
 
-      <!-- WIDGET SETTINGS -->
       <section class="settings-card">
         <h2>Widget Settings</h2>
 
@@ -51,7 +50,6 @@
         </button>
       </section>
 
-      <!-- WEATHER SETTINGS -->
       <section v-if="widgets.weather" class="settings-card">
         <h2>Weather Settings</h2>
 
@@ -69,13 +67,10 @@
         </div>
       </section>
 
-      <!-- DASHBOARD PREVIEW -->
       <section class="preview-card">
         <h2>Dashboard Preview</h2>
 
         <div class="widget-grid">
-
-          <!-- WEATHER -->
           <div v-if="widgets.weather" class="widget-card">
             <h3>Weather</h3>
 
@@ -89,22 +84,17 @@
             <p v-else>Unable to load weather.</p>
           </div>
 
-          <!-- PLACEHOLDERS -->
           <div v-if="widgets.calendar" class="widget-card">
             <h3>Calendar</h3>
             <p>Coming soon</p>
           </div>
 
-          <div v-if="widgets.announcements" class="widget-card">
-            <h3>Announcements</h3>
-            <p>Coming soon</p>
-          </div>
+          <AnnouncementsWidget v-if="widgets.announcements" />
 
           <div v-if="widgets.minecraft" class="widget-card">
             <h3>Minecraft</h3>
             <p>Coming soon</p>
           </div>
-
         </div>
       </section>
     </div>
@@ -116,6 +106,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getDashboardById, updateDashboardWidgets } from '../services/dashboards'
 import { getWeather } from '../services/weather'
+import AnnouncementsWidget from '../components/AnnouncementsWidget.vue'
 
 type WidgetSettings = {
   weather: boolean
@@ -238,6 +229,13 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.back-link {
+  color: #4ea1ff;
+  text-decoration: none;
+  font-weight: bold;
 }
 
 .settings-card,
@@ -259,6 +257,7 @@ onMounted(async () => {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 input {
@@ -282,7 +281,7 @@ button {
 
 .widget-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
 }
 
