@@ -6,15 +6,12 @@ import {
   updatePassword,
   sendPasswordResetEmail,
 } from 'firebase/auth'
-
 import {
   doc,
   setDoc,
   getDoc,
   serverTimestamp,
 } from 'firebase/firestore'
-
-/* ---------------- REGISTER ---------------- */
 
 export const registerUser = async (
   email: string,
@@ -31,13 +28,17 @@ export const registerUser = async (
     defaultLocation: '',
     minecraftServer: '',
     minecraftEdition: 'java',
+    displaySettings: {
+      showWeather: true,
+      showAnnouncements: true,
+      showMinecraft: true,
+      use24HourTime: false,
+    },
     createdAt: serverTimestamp(),
   })
 
   return user
 }
-
-/* ---------------- LOGIN ---------------- */
 
 export const loginUser = async (email: string, password: string) => {
   const userCredential = await signInWithEmailAndPassword(auth, email, password)
@@ -54,6 +55,12 @@ export const loginUser = async (email: string, password: string) => {
       defaultLocation: '',
       minecraftServer: '',
       minecraftEdition: 'java',
+      displaySettings: {
+        showWeather: true,
+        showAnnouncements: true,
+        showMinecraft: true,
+        use24HourTime: false,
+      },
       createdAt: serverTimestamp(),
     })
   }
@@ -61,20 +68,14 @@ export const loginUser = async (email: string, password: string) => {
   return user
 }
 
-/* ---------------- LOGOUT ---------------- */
-
 export const logoutUser = async () => {
   await signOut(auth)
 }
-
-/* ---------------- PROFILE ---------------- */
 
 export const getUserProfile = async (uid: string) => {
   const userDoc = await getDoc(doc(db, 'users', uid))
   return userDoc.exists() ? userDoc.data() : null
 }
-
-/* ---------------- SETTINGS ---------------- */
 
 export const updateUserLocation = async (uid: string, location: string) => {
   const userRef = doc(db, 'users', uid)
@@ -103,7 +104,23 @@ export const updateUserMinecraftSettings = async (
   )
 }
 
-/* ---------------- PASSWORD ---------------- */
+export const updateUserDisplaySettings = async (
+  uid: string,
+  displaySettings: {
+    showWeather: boolean
+    showAnnouncements: boolean
+    showMinecraft: boolean
+    use24HourTime: boolean
+  }
+) => {
+  const userRef = doc(db, 'users', uid)
+
+  await setDoc(
+    userRef,
+    { displaySettings },
+    { merge: true }
+  )
+}
 
 export const changePassword = async (newPassword: string) => {
   const user = auth.currentUser

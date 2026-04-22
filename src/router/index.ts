@@ -2,9 +2,18 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
-import DashboardView from '../views/DashboardView.vue'
+import SettingsView from '../views/SettingsView.vue'
 import { auth } from '../firebase'
-import DashboardDetailView from '../views/DashboardDetailView.vue'
+import { onAuthStateChanged } from 'firebase/auth'
+
+const getCurrentUser = () => {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe()
+      resolve(user)
+    })
+  })
+}
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -13,6 +22,13 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: SettingsView,
+      meta: { requiresAuth: true },
     },
     {
       path: '/login',
@@ -24,29 +40,19 @@ const router = createRouter({
       name: 'register',
       component: RegisterView,
     },
-    {
-      path: '/dashboard',
-      name: 'dashboard',
-      component: DashboardView,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/dashboard/:id',
-      name: 'dashboard-detail',
-      component: DashboardDetailView,
-      meta: { requiresAuth: true },
-    }
   ],
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to) => {
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
-  const currentUser = auth.currentUser
+  const user = await getCurrentUser()
 
-  if (requiresAuth && !currentUser) {
-    next('/login')
-  } else {
-    next()
+  if (requiresAuth && !user) {
+    return '/login'
+  }
+
+  if ((to.path === '/login' || to.path === '/register') && user) {
+    return '/'
   }
 })
 

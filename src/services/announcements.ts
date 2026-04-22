@@ -2,10 +2,10 @@ import { db } from '../firebase'
 import {
   collection,
   addDoc,
-  getDocs,
   query,
   orderBy,
   serverTimestamp,
+  onSnapshot,
 } from 'firebase/firestore'
 
 export type Announcement = {
@@ -29,16 +29,20 @@ export const createAnnouncement = async (
   })
 }
 
-export const getAnnouncements = async () => {
+export const subscribeToAnnouncements = (
+  callback: (announcements: Announcement[]) => void
+) => {
   const q = query(
     collection(db, 'announcements'),
     orderBy('createdAt', 'desc')
   )
 
-  const querySnapshot = await getDocs(q)
+  return onSnapshot(q, (snapshot) => {
+    const announcements = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    })) as Announcement[]
 
-  return querySnapshot.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...docSnap.data(),
-  })) as Announcement[]
+    callback(announcements)
+  })
 }
