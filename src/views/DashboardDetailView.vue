@@ -12,12 +12,15 @@
       <div class="page-header">
         <div>
           <h1>{{ dashboard.name }}</h1>
-          <p>Customize which widgets appear on this dashboard.</p>
+          <p>Customize your dashboard and widgets.</p>
         </div>
 
-        <router-link class="back-link" to="/dashboard">Back to Dashboards</router-link>
+        <router-link class="back-link" to="/dashboard">
+          Back
+        </router-link>
       </div>
 
+      <!-- WIDGET SETTINGS -->
       <section class="settings-card">
         <h2>Widget Settings</h2>
 
@@ -39,38 +42,69 @@
 
           <label>
             <input type="checkbox" v-model="widgets.minecraft" />
-            Minecraft Server
+            Minecraft
           </label>
         </div>
 
         <button @click="handleSaveWidgets" :disabled="saving">
-          {{ saving ? 'Saving...' : 'Save Widget Settings' }}
+          {{ saving ? 'Saving...' : 'Save Settings' }}
         </button>
       </section>
 
+      <!-- WEATHER SETTINGS -->
+      <section v-if="widgets.weather" class="settings-card">
+        <h2>Weather Settings</h2>
+
+        <div class="location-input">
+          <label>Location (lat, lng)</label>
+
+          <input
+            v-model="locationInput"
+            placeholder="Example: 42.9634, -85.6681"
+          />
+
+          <button @click="updateLocation">
+            Update Location
+          </button>
+        </div>
+      </section>
+
+      <!-- DASHBOARD PREVIEW -->
       <section class="preview-card">
         <h2>Dashboard Preview</h2>
 
         <div class="widget-grid">
+
+          <!-- WEATHER -->
           <div v-if="widgets.weather" class="widget-card">
-            <h3>Weather Widget</h3>
-            <p>Weather content will go here.</p>
+            <h3>Weather</h3>
+
+            <p v-if="weatherLoading">Loading weather...</p>
+
+            <div v-else-if="weather">
+              <p><strong>Temperature:</strong> {{ weather.temperature }}°F</p>
+              <p><strong>Wind Speed:</strong> {{ weather.windspeed }} mph</p>
+            </div>
+
+            <p v-else>Unable to load weather.</p>
           </div>
 
+          <!-- PLACEHOLDERS -->
           <div v-if="widgets.calendar" class="widget-card">
-            <h3>Calendar Widget</h3>
-            <p>Calendar content will go here.</p>
+            <h3>Calendar</h3>
+            <p>Coming soon</p>
           </div>
 
           <div v-if="widgets.announcements" class="widget-card">
-            <h3>Announcements Widget</h3>
-            <p>Announcements content will go here.</p>
+            <h3>Announcements</h3>
+            <p>Coming soon</p>
           </div>
 
           <div v-if="widgets.minecraft" class="widget-card">
-            <h3>Minecraft Widget</h3>
-            <p>Minecraft server content will go here.</p>
+            <h3>Minecraft</h3>
+            <p>Coming soon</p>
           </div>
+
         </div>
       </section>
     </div>
@@ -81,6 +115,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getDashboardById, updateDashboardWidgets } from '../services/dashboards'
+import { getWeather } from '../services/weather'
 
 type WidgetSettings = {
   weather: boolean
@@ -97,6 +132,11 @@ type Dashboard = {
   layout: unknown[]
 }
 
+type WeatherData = {
+  temperature: number
+  windspeed: number
+}
+
 const route = useRoute()
 
 const dashboard = ref<Dashboard | null>(null)
@@ -109,6 +149,11 @@ const widgets = ref<WidgetSettings>({
   announcements: false,
   minecraft: false,
 })
+
+const weather = ref<WeatherData | null>(null)
+const weatherLoading = ref(true)
+
+const locationInput = ref('42.9634, -85.6681')
 
 const loadDashboard = async () => {
   loading.value = true
@@ -129,6 +174,34 @@ const loadDashboard = async () => {
   }
 }
 
+const loadWeather = async (lat: number, lng: number) => {
+  weatherLoading.value = true
+
+  try {
+    const result = await getWeather(lat, lng)
+    weather.value = result
+  } catch (error) {
+    console.error('Weather error:', error)
+    weather.value = null
+  } finally {
+    weatherLoading.value = false
+  }
+}
+
+const updateLocation = async () => {
+  try {
+    const [lat, lng] = locationInput.value.split(',').map(Number)
+
+    if (!isNaN(lat) && !isNaN(lng)) {
+      await loadWeather(lat, lng)
+    } else {
+      console.error('Invalid location format')
+    }
+  } catch (error) {
+    console.error('Location parse error:', error)
+  }
+}
+
 const handleSaveWidgets = async () => {
   if (!dashboard.value) return
 
@@ -138,14 +211,19 @@ const handleSaveWidgets = async () => {
     await updateDashboardWidgets(dashboard.value.id, widgets.value)
     await loadDashboard()
   } catch (error) {
-    console.error('Failed to save widget settings:', error)
+    console.error('Failed to save widgets:', error)
   } finally {
     saving.value = false
   }
 }
 
-onMounted(() => {
-  loadDashboard()
+onMounted(async () => {
+  await loadDashboard()
+
+  const [lat, lng] = locationInput.value.split(',').map(Number)
+  if (!isNaN(lat) && !isNaN(lng)) {
+    await loadWeather(lat, lng)
+  }
 })
 </script>
 
@@ -159,15 +237,7 @@ onMounted(() => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
   margin-bottom: 1.5rem;
-}
-
-.back-link {
-  color: #4ea1ff;
-  text-decoration: none;
-  font-weight: bold;
 }
 
 .settings-card,
@@ -182,22 +252,31 @@ onMounted(() => {
 .toggle-list {
   display: grid;
   gap: 0.75rem;
-  margin: 1rem 0 1.25rem 0;
+  margin: 1rem 0;
 }
 
-label {
+.location-input {
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+input {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.7rem;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #111;
+  color: white;
 }
 
 button {
-  padding: 0.8rem 1rem;
+  padding: 0.7rem 1rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #4ea1ff;
   color: white;
-  font-weight: bold;
   cursor: pointer;
 }
 
@@ -210,7 +289,7 @@ button {
 .widget-card {
   background: #111;
   border: 1px solid #333;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 1rem;
 }
 </style>
