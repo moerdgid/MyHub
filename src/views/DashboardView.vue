@@ -9,10 +9,11 @@
       <button class="logout-button" @click="handleLogout">Logout</button>
     </div>
 
-    <section class="create-section">
+    <!-- CREATE DASHBOARD -->
+    <section class="card">
       <h2>Create Dashboard</h2>
 
-      <form class="create-form" @submit.prevent="handleCreateDashboard">
+      <form class="form-row" @submit.prevent="handleCreateDashboard">
         <input
           v-model="newDashboardName"
           type="text"
@@ -25,7 +26,8 @@
       </form>
     </section>
 
-    <section class="list-section">
+    <!-- DASHBOARD LIST -->
+    <section class="card">
       <h2>Your Dashboards</h2>
 
       <p v-if="loading">Loading dashboards...</p>
@@ -37,12 +39,11 @@
           :key="dashboard.id"
           class="dashboard-card"
         >
-          <div class="dashboard-info">
+          <div>
             <h3>{{ dashboard.name }}</h3>
-            <p>ID: {{ dashboard.id }}</p>
           </div>
 
-          <div class="dashboard-actions">
+          <div class="actions">
             <router-link :to="`/dashboard/${dashboard.id}`">
               <button>Open</button>
             </router-link>
@@ -51,10 +52,7 @@
               Rename
             </button>
 
-            <button
-              class="delete-button"
-              @click="handleDeleteDashboard(dashboard.id)"
-            >
+            <button class="danger" @click="handleDeleteDashboard(dashboard.id)">
               Delete
             </button>
           </div>
@@ -62,48 +60,53 @@
       </div>
     </section>
 
-    <section v-if="renamingDashboardId" class="rename-section">
+    <!-- RENAME -->
+    <section v-if="renamingDashboardId" class="card">
       <h2>Rename Dashboard</h2>
 
-      <form class="rename-form" @submit.prevent="handleRenameDashboard">
-        <input
-          v-model="renameValue"
-          type="text"
-          placeholder="New dashboard name"
-          required
-        />
-        <button type="submit">Save Name</button>
-        <button type="button" class="cancel-button" @click="cancelRename">
+      <form class="form-row" @submit.prevent="handleRenameDashboard">
+        <input v-model="renameValue" required />
+        <button type="submit">Save</button>
+        <button type="button" class="secondary" @click="cancelRename">
           Cancel
         </button>
       </form>
+    </section>
+
+    <!-- CHANGE PASSWORD -->
+    <section class="card">
+      <h2>Change Password</h2>
+
+      <div class="form-row">
+        <input
+          v-model="newPassword"
+          type="password"
+          placeholder="New password"
+        />
+
+        <button @click="handleChangePassword">
+          Update Password
+        </button>
+      </div>
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { logoutUser } from '../services/auth'
 import {
   createDashboard,
   getUserDashboards,
   renameDashboard,
   removeDashboard,
 } from '../services/dashboards'
+import { logoutUser, changePassword } from '../services/auth'
 
 type Dashboard = {
   id: string
   name: string
-  userId: string
-  widgets: {
-    weather: boolean
-    calendar: boolean
-    announcements: boolean
-    minecraft: boolean
-  }
-  layout: unknown[]
 }
 
 const router = useRouter()
@@ -116,16 +119,17 @@ const renamingDashboardId = ref('')
 const loading = ref(true)
 const creating = ref(false)
 
+const newPassword = ref('')
+
 const loadDashboards = async () => {
   if (!authStore.user) return
 
   loading.value = true
 
   try {
-    const results = await getUserDashboards(authStore.user.uid)
-    dashboards.value = results as Dashboard[]
+    dashboards.value = await getUserDashboards(authStore.user.uid)
   } catch (error) {
-    console.error('Failed to load dashboards:', error)
+    console.error(error)
   } finally {
     loading.value = false
   }
@@ -140,16 +144,14 @@ const handleCreateDashboard = async () => {
     await createDashboard(authStore.user.uid, newDashboardName.value)
     newDashboardName.value = ''
     await loadDashboards()
-  } catch (error) {
-    console.error('Failed to create dashboard:', error)
   } finally {
     creating.value = false
   }
 }
 
-const startRename = (dashboardId: string, currentName: string) => {
-  renamingDashboardId.value = dashboardId
-  renameValue.value = currentName
+const startRename = (id: string, name: string) => {
+  renamingDashboardId.value = id
+  renameValue.value = name
 }
 
 const cancelRename = () => {
@@ -158,24 +160,14 @@ const cancelRename = () => {
 }
 
 const handleRenameDashboard = async () => {
-  if (!renamingDashboardId.value) return
-
-  try {
-    await renameDashboard(renamingDashboardId.value, renameValue.value)
-    cancelRename()
-    await loadDashboards()
-  } catch (error) {
-    console.error('Failed to rename dashboard:', error)
-  }
+  await renameDashboard(renamingDashboardId.value, renameValue.value)
+  cancelRename()
+  await loadDashboards()
 }
 
-const handleDeleteDashboard = async (dashboardId: string) => {
-  try {
-    await removeDashboard(dashboardId)
-    await loadDashboards()
-  } catch (error) {
-    console.error('Failed to delete dashboard:', error)
-  }
+const handleDeleteDashboard = async (id: string) => {
+  await removeDashboard(id)
+  await loadDashboards()
 }
 
 const handleLogout = async () => {
@@ -183,9 +175,21 @@ const handleLogout = async () => {
   router.push('/login')
 }
 
-onMounted(() => {
-  loadDashboards()
-})
+const handleChangePassword = async () => {
+  try {
+    await changePassword(newPassword.value)
+    alert('Password updated successfully')
+    newPassword.value = ''
+  } catch (error: any) {
+    if (error.code === 'auth/requires-recent-login') {
+      alert('Log out and log back in before changing password.')
+    } else {
+      alert('Failed to update password')
+    }
+  }
+}
+
+onMounted(loadDashboards)
 </script>
 
 <style scoped>
@@ -198,23 +202,18 @@ onMounted(() => {
 .dashboard-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
   margin-bottom: 2rem;
-  gap: 1rem;
 }
 
-.create-section,
-.list-section,
-.rename-section {
+.card {
   background: #1b1b1b;
   border: 1px solid #333;
-  border-radius: 12px;
   padding: 1.5rem;
+  border-radius: 12px;
   margin-bottom: 1.5rem;
 }
 
-.create-form,
-.rename-form {
+.form-row {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
@@ -222,22 +221,29 @@ onMounted(() => {
 
 input {
   flex: 1;
-  min-width: 220px;
-  padding: 0.8rem;
-  border-radius: 8px;
-  border: 1px solid #444;
+  min-width: 200px;
+  padding: 0.7rem;
   background: #111;
+  border: 1px solid #444;
   color: white;
+  border-radius: 6px;
 }
 
 button {
-  padding: 0.8rem 1rem;
-  border: none;
-  border-radius: 8px;
+  padding: 0.7rem 1rem;
   background: #4ea1ff;
+  border: none;
   color: white;
-  font-weight: bold;
+  border-radius: 6px;
   cursor: pointer;
+}
+
+.secondary {
+  background: #666;
+}
+
+.danger {
+  background: #d9534f;
 }
 
 .dashboard-list {
@@ -248,40 +254,13 @@ button {
 .dashboard-card {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
   background: #111;
-  border: 1px solid #333;
-  border-radius: 10px;
   padding: 1rem;
+  border-radius: 8px;
 }
 
-.dashboard-info h3 {
-  margin: 0 0 0.4rem 0;
-}
-
-.dashboard-info p {
-  margin: 0;
-  color: #bbb;
-  font-size: 0.9rem;
-}
-
-.dashboard-actions {
+.actions {
   display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.dashboard-actions a {
-  text-decoration: none;
-}
-
-.delete-button {
-  background: #d9534f;
-}
-
-.cancel-button,
-.logout-button {
-  background: #666;
 }
 </style>

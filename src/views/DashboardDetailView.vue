@@ -12,7 +12,7 @@
       <div class="page-header">
         <div>
           <h1>{{ dashboard.name }}</h1>
-          <p>Customize your dashboard and widgets.</p>
+          <p>Customize your dashboard.</p>
         </div>
 
         <router-link class="back-link" to="/dashboard">
@@ -20,81 +20,63 @@
         </router-link>
       </div>
 
+      <!-- SETTINGS -->
       <section class="settings-card">
-        <h2>Widget Settings</h2>
+        <h2>Widgets</h2>
 
         <div class="toggle-list">
-          <label>
-            <input type="checkbox" v-model="widgets.weather" />
-            Weather
-          </label>
-
-          <label>
-            <input type="checkbox" v-model="widgets.calendar" />
-            Calendar
-          </label>
-
-          <label>
-            <input type="checkbox" v-model="widgets.announcements" />
-            Announcements
-          </label>
-
-          <label>
-            <input type="checkbox" v-model="widgets.minecraft" />
-            Minecraft
-          </label>
+          <label><input type="checkbox" v-model="widgets.weather" /> Weather</label>
+          <label><input type="checkbox" v-model="widgets.announcements" /> Announcements</label>
+          <label><input type="checkbox" v-model="widgets.minecraft" /> Minecraft</label>
         </div>
 
-        <button @click="handleSaveWidgets" :disabled="saving">
-          {{ saving ? 'Saving...' : 'Save Settings' }}
+        <button @click="handleSaveWidgets">
+          Save Settings
         </button>
       </section>
 
+      <!-- WEATHER SETTINGS -->
       <section v-if="widgets.weather" class="settings-card">
-        <h2>Weather Settings</h2>
+        <h2>Weather Location</h2>
 
         <div class="location-input">
-          <label>Location (lat, lng)</label>
-
           <input
             v-model="locationInput"
-            placeholder="Example: 42.9634, -85.6681"
+            placeholder="Enter city (e.g. Grand Rapids, MI)"
           />
 
           <button @click="updateLocation">
-            Update Location
+            Save Location
           </button>
         </div>
       </section>
 
+      <!-- DASHBOARD -->
       <section class="preview-card">
-        <h2>Dashboard Preview</h2>
+        <h2>Dashboard</h2>
 
         <div class="widget-grid">
+
+          <!-- WEATHER -->
           <div v-if="widgets.weather" class="widget-card">
             <h3>Weather</h3>
 
-            <p v-if="weatherLoading">Loading weather...</p>
+            <p v-if="weatherLoading">Loading...</p>
 
             <div v-else-if="weather">
-              <p><strong>Temperature:</strong> {{ weather.temperature }}°F</p>
-              <p><strong>Wind Speed:</strong> {{ weather.windspeed }} mph</p>
+              <p><strong>Temp:</strong> {{ weather.temperature }}°F</p>
+              <p><strong>Wind:</strong> {{ weather.windspeed }} mph</p>
             </div>
 
-            <p v-else>Unable to load weather.</p>
+            <p v-else>No data</p>
           </div>
 
-          <div v-if="widgets.calendar" class="widget-card">
-            <h3>Calendar</h3>
-            <p>Coming soon</p>
-          </div>
-
+          <!-- ANNOUNCEMENTS -->
           <AnnouncementsWidget v-if="widgets.announcements" />
 
-          <div v-if="widgets.minecraft" class="widget-card">
-            <h3>Minecraft</h3>
-            <p>Coming soon</p>
-          </div>
+          <!-- MINECRAFT -->
+          <MinecraftWidget v-if="widgets.minecraft" />
+
         </div>
       </section>
     </div>
@@ -102,77 +84,83 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+
 import { getDashboardById, updateDashboardWidgets } from '../services/dashboards'
-import { getWeather } from '../services/weather'
+import { getWeather, getCoordinatesFromCity } from '../services/weather'
+import { getUserProfile, updateUserLocation } from '../services/auth'
+
 import AnnouncementsWidget from '../components/AnnouncementsWidget.vue'
-
-type WidgetSettings = {
-  weather: boolean
-  calendar: boolean
-  announcements: boolean
-  minecraft: boolean
-}
-
-type Dashboard = {
-  id: string
-  userId: string
-  name: string
-  widgets: WidgetSettings
-  layout: unknown[]
-}
-
-type WeatherData = {
-  temperature: number
-  windspeed: number
-}
+import MinecraftWidget from '../components/MinecraftWidget.vue'
 
 const route = useRoute()
+const authStore = useAuthStore()
 
-const dashboard = ref<Dashboard | null>(null)
+const dashboard = ref<any>(null)
 const loading = ref(true)
-const saving = ref(false)
 
-const widgets = ref<WidgetSettings>({
+const widgets = ref({
   weather: false,
-  calendar: false,
   announcements: false,
   minecraft: false,
 })
 
-const weather = ref<WeatherData | null>(null)
+const weather = ref<any>(null)
 const weatherLoading = ref(true)
 
-const locationInput = ref('42.9634, -85.6681')
+const locationInput = ref('')
+
+/* ---------------- DASHBOARD ---------------- */
 
 const loadDashboard = async () => {
-  loading.value = true
-
   try {
     const result = await getDashboardById(route.params.id as string)
-
-    if (result) {
-      dashboard.value = result as Dashboard
-      widgets.value = { ...dashboard.value.widgets }
-    } else {
-      dashboard.value = null
-    }
-  } catch (error) {
-    console.error('Failed to load dashboard:', error)
+    dashboard.value = result
+    widgets.value = { ...result.widgets }
+  } catch (err) {
+    console.error(err)
   } finally {
     loading.value = false
   }
 }
 
+const handleSaveWidgets = async () => {
+  if (!dashboard.value) return
+
+  await updateDashboardWidgets(dashboard.value.id, widgets.value)
+}
+
+/* ---------------- WEATHER ---------------- */
+
 const loadWeather = async (lat: number, lng: number) => {
+  try {
+    weather.value = await getWeather(lat, lng)
+  } catch (err) {
+    console.error('Weather error:', err)
+    weather.value = null
+  }
+}
+
+const loadSavedLocation = async () => {
+  if (!authStore.user) return
+
   weatherLoading.value = true
 
   try {
-    const result = await getWeather(lat, lng)
-    weather.value = result
-  } catch (error) {
-    console.error('Weather error:', error)
+    const profile = await getUserProfile(authStore.user.uid)
+
+    if (profile?.defaultLocation) {
+      locationInput.value = profile.defaultLocation
+
+      const coords = await getCoordinatesFromCity(locationInput.value)
+
+      await loadWeather(coords.latitude, coords.longitude)
+    }
+
+  } catch (err) {
+    console.error('Load location error:', err)
     weather.value = null
   } finally {
     weatherLoading.value = false
@@ -180,47 +168,42 @@ const loadWeather = async (lat: number, lng: number) => {
 }
 
 const updateLocation = async () => {
-  try {
-    const [lat, lng] = locationInput.value.split(',').map(Number)
+  if (!authStore.user) return
 
-    if (!isNaN(lat) && !isNaN(lng)) {
-      await loadWeather(lat, lng)
-    } else {
-      console.error('Invalid location format')
-    }
-  } catch (error) {
-    console.error('Location parse error:', error)
-  }
-}
-
-const handleSaveWidgets = async () => {
-  if (!dashboard.value) return
-
-  saving.value = true
+  weatherLoading.value = true
 
   try {
-    await updateDashboardWidgets(dashboard.value.id, widgets.value)
-    await loadDashboard()
-  } catch (error) {
-    console.error('Failed to save widgets:', error)
+    const coords = await getCoordinatesFromCity(locationInput.value)
+
+    await loadWeather(coords.latitude, coords.longitude)
+
+    await updateUserLocation(
+      authStore.user.uid,
+      locationInput.value
+    )
+
+  } catch (err: any) {
+    console.error('Location error:', err)
+
+    weather.value = null
+    alert('Could not find that location. Try something like "Chicago, IL"')
+
   } finally {
-    saving.value = false
+    weatherLoading.value = false
   }
 }
+
+/* ---------------- INIT ---------------- */
 
 onMounted(async () => {
   await loadDashboard()
-
-  const [lat, lng] = locationInput.value.split(',').map(Number)
-  if (!isNaN(lat) && !isNaN(lng)) {
-    await loadWeather(lat, lng)
-  }
+  await loadSavedLocation()
 })
 </script>
 
 <style scoped>
 .dashboard-detail-page {
-  max-width: 1000px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 2rem;
 }
@@ -228,67 +211,54 @@ onMounted(async () => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
-  gap: 1rem;
-}
-
-.back-link {
-  color: #4ea1ff;
-  text-decoration: none;
-  font-weight: bold;
+  margin-bottom: 2rem;
 }
 
 .settings-card,
 .preview-card {
   background: #1b1b1b;
-  border: 1px solid #333;
   border-radius: 12px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
 }
 
 .toggle-list {
-  display: grid;
-  gap: 0.75rem;
-  margin: 1rem 0;
+  display: flex;
+  gap: 1rem;
 }
 
 .location-input {
   display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
-  align-items: center;
 }
 
 input {
   flex: 1;
-  min-width: 200px;
   padding: 0.7rem;
-  border-radius: 6px;
-  border: 1px solid #444;
   background: #111;
   color: white;
+  border-radius: 6px;
+  border: 1px solid #333;
 }
 
 button {
   padding: 0.7rem 1rem;
+  background: #4ea1ff;
   border: none;
   border-radius: 6px;
-  background: #4ea1ff;
   color: white;
   cursor: pointer;
 }
 
 .widget-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1rem;
 }
 
 .widget-card {
   background: #111;
-  border: 1px solid #333;
-  border-radius: 8px;
   padding: 1rem;
+  border-radius: 10px;
 }
 </style>

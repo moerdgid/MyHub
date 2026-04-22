@@ -14,9 +14,14 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
+  const setUser = (newUser: User | null) => {
+    user.value = newUser
+  }
+
   return {
     user,
     authReady,
     initAuth,
+    setUser,
   }
 })
