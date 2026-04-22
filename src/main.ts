@@ -5,14 +5,15 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
-import { auth, db } from './firebase'
-
-console.log('Firebase auth ready:', auth)
-console.log('Firestore ready:', db)
+import { useAuthStore } from './stores/auth'
 
 const app = createApp(App)
+const pinia = createPinia()
 
-app.use(createPinia())
+app.use(pinia)
 app.use(router)
+
+const authStore = useAuthStore()
+authStore.initAuth()
 
 app.mount('#app')
