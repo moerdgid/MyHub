@@ -43,10 +43,18 @@
           </div>
 
           <div class="dashboard-actions">
+            <router-link :to="`/dashboard/${dashboard.id}`">
+              <button>Open</button>
+            </router-link>
+
             <button @click="startRename(dashboard.id, dashboard.name)">
               Rename
             </button>
-            <button class="delete-button" @click="handleDeleteDashboard(dashboard.id)">
+
+            <button
+              class="delete-button"
+              @click="handleDeleteDashboard(dashboard.id)"
+            >
               Delete
             </button>
           </div>
@@ -262,6 +270,10 @@ button {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.dashboard-actions a {
+  text-decoration: none;
 }
 
 .delete-button {

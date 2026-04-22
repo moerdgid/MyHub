@@ -4,6 +4,7 @@ import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import { auth } from '../firebase'
+import DashboardDetailView from '../views/DashboardDetailView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -29,6 +30,12 @@ const router = createRouter({
       component: DashboardView,
       meta: { requiresAuth: true },
     },
+    {
+      path: '/dashboard/:id',
+      name: 'dashboard-detail',
+      component: DashboardDetailView,
+      meta: { requiresAuth: true },
+    }
   ],
 })
 
