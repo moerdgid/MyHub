@@ -3,37 +3,19 @@
     <h3>Announcements</h3>
 
     <form class="announcement-form" @submit.prevent="handleCreateAnnouncement">
-      <input
-        v-model="newTitle"
-        type="text"
-        placeholder="Announcement title"
-        required
-      />
-      <textarea
-        v-model="newBody"
-        placeholder="Announcement body"
-        rows="3"
-        required
-      ></textarea>
+      <input v-model="newTitle" type="text" placeholder="Announcement title" required />
+      <textarea v-model="newBody" placeholder="Announcement body" rows="3" required></textarea>
+
       <button type="submit" :disabled="creating">
         {{ creating ? 'Posting...' : 'Post Announcement' }}
       </button>
     </form>
 
-    <div v-if="loading" class="state-text">
-      Loading announcements...
-    </div>
-
-    <div v-else-if="announcements.length === 0" class="state-text">
-      No announcements yet.
-    </div>
+    <p v-if="loading" class="state-text">Loading announcements...</p>
+    <p v-else-if="announcements.length === 0" class="state-text">No announcements yet.</p>
 
     <div v-else class="announcement-list">
-      <article
-        v-for="announcement in announcements"
-        :key="announcement.id"
-        class="announcement-item"
-      >
+      <article v-for="announcement in announcements" :key="announcement.id" class="announcement-item">
         <h4>{{ announcement.title }}</h4>
         <p>{{ announcement.body }}</p>
         <small>Posted by {{ announcement.authorEmail }}</small>
@@ -43,8 +25,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { createAnnouncement, getAnnouncements, type Announcement } from '../services/announcements'
+import { onMounted, onUnmounted, ref } from 'vue'
+import {
+  createAnnouncement,
+  subscribeToAnnouncements,
+  type Announcement,
+} from '../services/announcements'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
@@ -55,17 +41,7 @@ const newBody = ref('')
 const loading = ref(true)
 const creating = ref(false)
 
-const loadAnnouncements = async () => {
-  loading.value = true
-
-  try {
-    announcements.value = await getAnnouncements()
-  } catch (error) {
-    console.error('Failed to load announcements:', error)
-  } finally {
-    loading.value = false
-  }
-}
+let unsubscribe: (() => void) | undefined
 
 const handleCreateAnnouncement = async () => {
   if (!authStore.user) return
@@ -81,7 +57,6 @@ const handleCreateAnnouncement = async () => {
 
     newTitle.value = ''
     newBody.value = ''
-    await loadAnnouncements()
   } catch (error) {
     console.error('Failed to create announcement:', error)
   } finally {
@@ -90,7 +65,14 @@ const handleCreateAnnouncement = async () => {
 }
 
 onMounted(() => {
-  loadAnnouncements()
+  unsubscribe = subscribeToAnnouncements((items) => {
+    announcements.value = items
+    loading.value = false
+  })
+})
+
+onUnmounted(() => {
+  if (unsubscribe) unsubscribe()
 })
 </script>
 
@@ -102,9 +84,13 @@ onMounted(() => {
   padding: 1rem;
 }
 
-.announcement-form {
+.announcement-form,
+.announcement-list {
   display: grid;
   gap: 0.75rem;
+}
+
+.announcement-form {
   margin-bottom: 1rem;
 }
 
@@ -129,13 +115,9 @@ button {
   font-weight: bold;
 }
 
-.state-text {
+.state-text,
+.announcement-item small {
   color: #bbb;
-}
-
-.announcement-list {
-  display: grid;
-  gap: 0.75rem;
 }
 
 .announcement-item {
@@ -145,15 +127,8 @@ button {
   background: #181818;
 }
 
-.announcement-item h4 {
-  margin: 0 0 0.35rem 0;
-}
-
+.announcement-item h4,
 .announcement-item p {
   margin: 0 0 0.5rem 0;
-}
-
-.announcement-item small {
-  color: #bbb;
 }
 </style>
